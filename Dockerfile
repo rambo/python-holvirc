@@ -2,12 +2,16 @@ FROM ubuntu:18.04
 ENV PYTHONUNBUFFERED 1
 ENV DEBIAN_FRONTEND noninteractive
 
-# Usual update / upgrade
+# Usual update / upgrade with locale setup
 RUN apt-get update \
     && apt-get dist-upgrade -y \
-    && apt-get install -y software-properties-common sudo curl \
+    && apt-get install -y software-properties-common sudo curl locales\
     && apt-get autoremove -y \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && echo en_GB.UTF-8 UTF-8 >> /etc/locale.gen \
+    && locale-gen
+
+ENV LANG='en_GB.UTF-8' LANGUAGE='en_GB:en' LC_ALL='en_GB.UTF-8'
 
 # Python stuff
 RUN apt-get update \

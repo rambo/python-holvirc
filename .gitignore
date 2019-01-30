@@ -1,5 +1,6 @@
 .idea
 .env
+.venv
 play.py
 ._*
 .DS_Store
