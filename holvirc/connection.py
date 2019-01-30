@@ -6,11 +6,10 @@ import importlib
 import holvirc.helpers as helpers
 from future.builtins import next, object
 from future.utils import python_2_unicode_compatible
-from selenium.webdriver.common.keys import Keys
-
 from holviapi.connection import Connection as HolviApiConnection
 from holviapi.connection import requests
 from holviapi.errors import AuthenticationError
+from selenium.webdriver.common.keys import Keys
 
 # Store multiple pool connections with singleton getter
 SINGLETON_MAP = {}
