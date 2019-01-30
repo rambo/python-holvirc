@@ -1,5 +1,9 @@
 #! /bin/bash
-set -e
+
+if [ -e /tmp/.X99-lock ]
+then
+    rm /tmp/.X99-lock
+fi
 
 Xvfb :99 -screen 0 1600x1200x16 &
 XVFB_PID=$!
