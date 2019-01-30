@@ -22,7 +22,7 @@ setup(
     # version='0.1.20190130',
     author='Eero "rambo" af Heurlin',
     author_email='rambo@iki.fi',
-    packages=['holvirc'],
+    packages=['holvirc', 'holvirc.tests'],
     license='MIT',
     long_description=open('README.md').read(),
     description='Remote-Control Holvi via Selenium',
