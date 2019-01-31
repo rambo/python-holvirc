@@ -2,6 +2,7 @@ from __future__ import absolute_import, print_function
 
 import functools
 import importlib
+import time
 
 import bs4
 from future.builtins import next, object
@@ -18,12 +19,12 @@ SINGLETON_MAP = {}
 class ApiConnection(HolviApiConnection):
 
     @classmethod
-    def singleton(self, pool, sessionid, driver_instance):
+    def singleton(self, pool, username, driver_instance):
         """Get a singleton of a connection"""
         global SINGLETON_MAP
-        mapkey = (pool, sessionid)
+        mapkey = (pool, username)
         if not mapkey in SINGLETON_MAP:
-            SINGLETON_MAP[mapkey] = ApiConnection(pool, sessionid, driver_instance)
+            SINGLETON_MAP[mapkey] = ApiConnection(pool, username, driver_instance)
         return SINGLETON_MAP[mapkey]
 
     def __init__(self, poolname, sessionid, driver):
@@ -40,6 +41,10 @@ class ApiConnection(HolviApiConnection):
             })
         if copy_cookies:
             self.session.cookies.update(copy_cookies)
+            self.session.headers.update({
+                'Authorization': 'Bearer %s' % self.session.cookies.get('holvi_jwt_auth')
+            })
+
         self.session.remove_expired_responses()
 
     def sync_cookies_from_driver(self, driver=None):
@@ -52,6 +57,9 @@ class ApiConnection(HolviApiConnection):
         for cookiedict in driver.get_cookies():
             del cookiedict['expiry'], cookiedict['httpOnly']
             self.session.cookies.set(**cookiedict)
+        self.session.headers.update({
+            'Authorization': 'Bearer %s' % self.session.cookies.get('holvi_jwt_auth')
+        })
 
     def sync_cookies_to_driver(self, driver=None):
         """Sync the session cookies to the webdriver"""
@@ -102,6 +110,8 @@ class Connection(object):
         self.username = username
         self.password = password
         self.apiconnection = None
+        self.last_login_method = None
+        self.token_expires = time.time()
         self.login()
 
     @property
@@ -131,6 +141,7 @@ class Connection(object):
         tmp_connection = HolviApiConnection(None, None)
         tmp_connection._init_session()
         session = tmp_connection.session
+        session.cookies.clear()
         del session.headers['Authorization'], session.headers['Content-Type']
 
         login_get_response = session.get('https://holvi.com/login/')
@@ -155,8 +166,10 @@ class Connection(object):
         if not auth_cookie:
             AuthenticationError("Could not find auth cookie")
 
-        self.apiconnection = ApiConnection(self.pool, login_post_response.cookies.get('sessionid'), None)
+        self.apiconnection = ApiConnection(self.pool, username, None)
         self.apiconnection._init_session(copy_cookies=session.cookies)
+        self.token_expires = time.time() + 14 * 60
+        self.last_login_method = self.login
 
     def login_selenium(self, username=None, password=None):
         """Log in with username and password (via selenium), create API connection with the temp credentials"""
@@ -167,6 +180,7 @@ class Connection(object):
             username = self.username
         if not password:
             password = self.password
+        self.driver.delete_all_cookies()
         self.driver.get('https://holvi.com/login/')
         helpers.wait_for(functools.partial(helpers.element_found_by_name, self.driver, "username"))
         un_input = self.driver.find_element_by_name('username')
@@ -180,21 +194,31 @@ class Connection(object):
         auth_cookie = self.driver.get_cookie('holvi_jwt_auth')
         if not auth_cookie:
             AuthenticationError("Could not find auth cookie")
-        self.apiconnection = ApiConnection(self.pool, self.driver.get_cookie('sessionid')['value'], self.driver)
+        self.apiconnection = ApiConnection(self.pool, username, self.driver)
         self.apiconnection.sync_cookies_from_driver()
+        self.token_expires = time.time() + 14 * 60
+        self.last_login_method = self.login_selenium
+
+    def _check_login_expiry(self):
+        if time.time() > self.token_expires:
+            self.last_login_method()
 
     def make_get(self, *args, **kwargs):
         """Proxy to the actual API connection handler of the same name see holviapi.Connection"""
+        self._check_login_expiry()
         return self.apiconnection.make_get(*args, **kwargs)
 
     def make_post(self, *args, **kwargs):
         """Proxy to the actual API connection handler of the same name see holviapi.Connection"""
+        self._check_login_expiry()
         return self.apiconnection.make_post(*args, **kwargs)
 
     def make_put(self, *args, **kwargs):
         """Proxy to the actual API connection handler of the same name see holviapi.Connection"""
+        self._check_login_expiry()
         return self.apiconnection.make_put(*args, **kwargs)
 
     def make_patch(self, *args, **kwargs):
         """Proxy to the actual API connection handler of the same name see holviapi.Connection"""
+        self._check_login_expiry()
         return self.apiconnection.make_patch(*args, **kwargs)
