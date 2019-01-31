@@ -2,7 +2,7 @@ import os
 
 import holvirc
 import pytest
-from holviapi.tests.fixtures import categoriesapi, invoicesapi, productsapi
+from holviapi.tests.fixtures import invoicesapi, productsapi
 
 
 @pytest.fixture
@@ -15,3 +15,9 @@ def connection():
         raise RuntimeError("HOLVI_POOL, HOLVI_USER and HOLVI_PASSWORD must be in ENV for these tests")
     cnc = holvirc.Connection.singleton(pool, username, password, driverpath)
     return cnc
+
+
+@pytest.fixture
+def categoriesapi(connection):
+    ca = holvirc.CategoriesAPI(connection)
+    return ca
