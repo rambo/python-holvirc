@@ -4,7 +4,6 @@ import functools
 import importlib
 import time
 
-import bs4
 from future.builtins import next, object
 from future.utils import python_2_unicode_compatible
 from holviapi.connection import Connection as HolviApiConnection
@@ -133,7 +132,54 @@ class Connection(object):
         return self.apiconnection.base_url_fmt
 
     def login(self, username=None, password=None):
-        """Log in with username and password, create API connection with the temp credentials"""
+        """Log in with username and password (using Holvi provided API login endpoint), create API connection with the temp credentials"""
+        if not username:
+            username = self.username
+        if not password:
+            password = self.password
+
+        tmp_connection = HolviApiConnection(None, None)
+        tmp_connection._init_session()
+        session = tmp_connection.session
+        session.cookies.clear()
+        del session.headers['Authorization'], session.headers['Content-Type']
+
+        # the "client_id" property is a magic value I got from Holvi to identify users of this library
+        # so they can (maybe) inform said users in case of breaking API changes etc.
+        data = {
+            "client_id": "P9sx8FN96G4Cq1dgniv9xgc1IyteDtyS",
+            "connection": "Username-Password-Authentication",
+            "email": username,
+            "fingerprint": "-",
+            "fingerprint_components": "{}",
+            "grant_type": "password",
+            "password": password
+        }
+
+        login_post_response = session.post('https://holvi.com/api/auth-proxy/login/usernamepassword/', json=data)
+        if login_post_response.status_code in (403, 401):
+            AuthenticationError("HTTP Access denied")
+        decoded = login_post_response.json()
+        auth_token = decoded.get('id_token', False)
+        if not auth_token:
+            AuthenticationError("Could not find id_token in response")
+
+        session.cookies.set(**{
+            'name': 'holvi_jwt_auth',
+            'path': '/',
+            'value': auth_token,
+            'domain': '.holvi.com',
+            'secure': True,
+            'expires': time.time() + decoded.get('expires_in', 900),
+        })
+        self.apiconnection = ApiConnection(self.pool, username, None)
+        self.apiconnection._init_session(copy_cookies=session.cookies)
+        self.token_expires = time.time() + 14 * 60
+        self.last_login_method = self.login
+
+    def login_bs4(self, username=None, password=None):
+        """Log in with username and password (reflecting the login form via BeautifulSoup), create API connection with the temp credentials"""
+        import bs4
         if not username:
             username = self.username
         if not password:
@@ -169,7 +215,7 @@ class Connection(object):
         self.apiconnection = ApiConnection(self.pool, username, None)
         self.apiconnection._init_session(copy_cookies=session.cookies)
         self.token_expires = time.time() + 14 * 60
-        self.last_login_method = self.login
+        self.last_login_method = self.login_bs4
 
     def login_selenium(self, username=None, password=None):
         """Log in with username and password (via selenium), create API connection with the temp credentials"""
