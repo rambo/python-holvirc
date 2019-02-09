@@ -18,8 +18,8 @@ except subprocess.CalledProcessError:
 
 setup(
     name='holvirc',
-    version='0.4.1dev-%s' % git_version,
-    #version='0.3.20190131',
+    # version='0.4.1dev-%s' % git_version,
+    version='0.3.20190209',
     author='Eero "rambo" af Heurlin',
     author_email='rambo@iki.fi',
     packages=['holvirc', 'holvirc.tests'],
