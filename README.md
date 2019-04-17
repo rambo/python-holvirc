@@ -1,7 +1,7 @@
 # python-holvirc
 
 Drive [Holvi][holvi] API via Python. Unlike [holviapi] this uses your
-username and password for login so you need to to beg Holvi for a
+username and password for login so you do not need to to beg Holvi for a
 special API-key.
 
 [holvi]: https://about.holvi.com/en/
