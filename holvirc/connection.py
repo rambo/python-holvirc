@@ -133,6 +133,7 @@ class Connection(object):
 
     def login(self, username=None, password=None):
         """Log in with username and password (using Holvi provided API login endpoint), create API connection with the temp credentials"""
+        raise AuthenticationError("MFA enforcement breaks everything, check back later for workarounds")
         if not username:
             username = self.username
         if not password:
@@ -158,11 +159,11 @@ class Connection(object):
 
         login_post_response = session.post('https://holvi.com/api/auth-proxy/login/usernamepassword/', json=data)
         if login_post_response.status_code in (403, 401):
-            AuthenticationError("HTTP Access denied")
+            raise AuthenticationError("HTTP Access denied")
         decoded = login_post_response.json()
         auth_token = decoded.get('id_token', False)
         if not auth_token:
-            AuthenticationError("Could not find id_token in response")
+            raise AuthenticationError("Could not find id_token in response")
 
         session.cookies.set(**{
             'name': 'holvi_jwt_auth',
@@ -207,10 +208,10 @@ class Connection(object):
 
         login_post_response = session.post('https://holvi.com/login/', data=formdict)
         if login_post_response.status_code in (403, 401):
-            AuthenticationError("HTTP Access denied")
+            raise AuthenticationError("HTTP Access denied")
         auth_cookie = login_post_response.cookies.get('holvi_jwt_auth')
         if not auth_cookie:
-            AuthenticationError("Could not find auth cookie")
+            raise AuthenticationError("Could not find auth cookie")
 
         self.apiconnection = ApiConnection(self.pool, username, None)
         self.apiconnection._init_session(copy_cookies=session.cookies)
@@ -239,7 +240,7 @@ class Connection(object):
             pw_input.send_keys(Keys.RETURN)
         auth_cookie = self.driver.get_cookie('holvi_jwt_auth')
         if not auth_cookie:
-            AuthenticationError("Could not find auth cookie")
+            raise AuthenticationError("Could not find auth cookie")
         self.apiconnection = ApiConnection(self.pool, username, self.driver)
         self.apiconnection.sync_cookies_from_driver()
         self.token_expires = time.time() + 14 * 60
