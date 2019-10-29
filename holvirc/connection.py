@@ -133,6 +133,7 @@ class Connection(object):
 
     def login(self, username=None, password=None):
         """Log in with username and password (using Holvi provided API login endpoint), create API connection with the temp credentials"""
+        AuthenticationError("MFA enforcement breaks everything, check back later for workarounds")
         if not username:
             username = self.username
         if not password:
